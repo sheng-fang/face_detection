@@ -1,0 +1,9 @@
+{
+  "data":{
+    "dir": "data/WIDER_FACE",
+    "annotation": "wider_face_split",
+    "train": "WIDER_train/images",
+    "test": "WIDER_test/images",
+    "val": "WIDER_val/images"
+  }
+}
