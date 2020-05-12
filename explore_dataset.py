@@ -2,18 +2,14 @@
 A script to explore and visualize the data base
 """
 import os
-import json
 
 import numpy as np
-import tensorflow as tf
-import tensorflow.keras as keras
 import matplotlib.pyplot as plt
 
-import wider_util
-
+from util import wider_util
 
 FLAG_VIS = True
-TRAIN_ANNO_PATH = "data/WIDER_FACE/wider_face_split/wider_face_train_bbx_gt.txt"
+TRAIN_ANNO_PATH = "Data/WIDER_FACE/wider_face_split/wider_face_train_bbx_gt.txt"
 
 txt_path = os.path.join(os.path.expanduser("~"), TRAIN_ANNO_PATH)
 faces = wider_util.anno_test_2_dict(txt_path)
@@ -35,7 +31,7 @@ if FLAG_VIS:
     import random
     import cv2
 
-    img_dir = os.path.join(os.path.expanduser("~"), "data/WIDER_FACE/WIDER_train/images")
+    img_dir = os.path.join(os.path.expanduser("~"), "Data/WIDER_FACE/WIDER_train/images")
     random.shuffle(img_names)
     for img_name in img_names:
         img = cv2.imread(os.path.join(img_dir, img_name))
