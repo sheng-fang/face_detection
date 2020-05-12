@@ -64,25 +64,29 @@ def generate_default_boxes(config):
     return default_boxes
 
 
-def generate_labels_from_annotation(default_boxes, gt_boxes,
+def generate_labels_from_annotation(default_boxes, gt_boxes, gt_labels,
                                     iou_threshold=0.5):
     """Generate training labels for SSD with default boxes and ground true
 
     Args:
         default_boxes: tensor (num_default, 4) of format (cx, cy, w, h)
         gt_boxes: tensor (num_gt_box, 4) of format (xmin, ymin, xmax, ymax)
+        gt_labels: tensor (num_gt_box, )
         iou_threshold:
 
     Returns:
-
+        gt_confs: classification targets, tensor (num_default,)
+        gt_locs: regression targets, tensor (num_default, 4)
     """
     default_corner_box = bbox_tf.transform_center_to_corner(default_boxes)
     iou = bbox_tf.compute_iou(default_corner_box, gt_boxes)
 
+    # match ground truth to default box, find the best gt_box for each
+    # default box
     best_gt_iou = tf.math.reduce_max(iou, 1)
     best_gt_idx = tf.math.argmax(iou, 1)
 
-    best_default_iou = tf.math.reduce_max(iou, 0)
+    # match default box to ground truth
     best_default_idx = tf.math.argmax(iou, 0)
 
     best_gt_idx = tf.tensor_scatter_nd_update(
@@ -95,16 +99,40 @@ def generate_labels_from_annotation(default_boxes, gt_boxes,
         tf.expand_dims(best_default_idx, 1),
         tf.ones_like(best_default_idx, dtype=tf.float32))
 
-    # gt_confs = tf.gather(gt_labels, best_gt_idx)
-    # gt_confs = tf.where(
-    #     tf.less(best_gt_iou, iou_threshold),
-    #     tf.zeros_like(gt_confs),
-    #     gt_confs)
-    #
-    # gt_boxes = tf.gather(gt_boxes, best_gt_idx)
-    # gt_locs = encode(default_boxes, gt_boxes)
-    #
-    # return gt_confs, gt_locs
+    # assign label to each default box
+    gt_confs = tf.gather(gt_labels, best_gt_idx)
+    gt_confs = tf.where(
+        tf.less(best_gt_iou, iou_threshold),
+        tf.zeros_like(gt_confs),
+        gt_confs)
+
+    # assign gt boxes to each default box
+    gt_boxes = tf.gather(gt_boxes, best_gt_idx)
+    gt_locs = encode(default_boxes, gt_boxes)
+
+    return gt_confs, gt_locs
+
+
+def encode(default_boxes, boxes):
+    """ Compute regression values
+    Args:
+        default_boxes: tensor (num_default, 4)
+                       of format (cx, cy, w, h)
+        boxes: tensor (num_default, 4)
+               of format (xmin, ymin, xmax, ymax)
+    Returns:
+        locs: regression values, tensor (num_default, 4)
+    """
+    # Convert boxes to (cx, cy, w, h) format
+    transformed_boxes = bbox_tf.transform_corner_to_center(boxes)
+
+    locs = tf.concat([
+        (transformed_boxes[..., :2] - default_boxes[:, :2]
+         ) / default_boxes[:, 2:],
+        tf.math.log(transformed_boxes[..., 2:] / default_boxes[:, 2:])],
+        axis=-1)
+
+    return locs
 
 
 def main():
