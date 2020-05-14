@@ -12,3 +12,8 @@ Because face detection is a branch of generic object detection, I build Yolo and
 them on  WIDER FACE dataset. Then the last model RetinaFace is realized by jointly learn landmark of face and 
 localizations of faces at the same time. 
 
+
+
+Reference:
+
+https://github.com/ChunML/ssd-tf2
