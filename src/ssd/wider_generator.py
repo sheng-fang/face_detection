@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 
-from ssd.ssd import ssd_util
+from . import ssd_util
 
 
 class WIDERGenerator(object):

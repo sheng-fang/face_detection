@@ -5,7 +5,86 @@ import tensorflow as tf
 import math
 import itertools
 
-from fslib import bbox_tf
+
+def compute_area(top_left, bot_right):
+    """Calculate the area of boxes with top left and bottom right coordinates
+
+    Args:
+        top_left: tensor (num_boxes, 2) -> (x, y)
+        bot_right: tensor (num_boxes, 2) -> (x, y)
+
+    Returns:
+        area: tensor (num_boxes, )
+
+    """
+    height_width = bot_right - top_left
+    height_width = tf.where(height_width < 0.0, 0.0, height_width)
+    area = height_width[..., 0] * height_width[..., 1]
+
+    return area
+
+
+def compute_iou(boxes_1, boxes_2):
+    """Calculate the value of intersection over union of paris of boxes. The
+    boxes should be in format with coordinates of top left and bottom right.
+    NOT the coordinates of center
+
+    Args:
+        boxes_1: tensor (num_boxes_1, 4) in format: (xmin, ymin, xmax, ymax)
+        boxes_2: tensor (num_boxes_2, 4) in format: (xmin, ymin, xmax, ymax)
+
+    Returns:
+        ious: tensor (num_boxes_1, num_boxes_2)
+    """
+    # shape of boxes_1 => num_boxes_1, 1, 4
+    boxes_1 = tf.expand_dims(boxes_1, 1)
+
+    # shape of boxes_2 => 1, num_boxes_2, 4
+    boxes_2 = tf.expand_dims(boxes_2, 0)
+    top_left = tf.math.maximum(boxes_1[..., :2], boxes_2[..., :2])
+    bot_right = tf.math.minimum(boxes_1[..., 2:], boxes_2[..., 2:])
+
+    intersection = compute_area(top_left, bot_right)
+    area_1 = compute_area(boxes_1[..., :2], boxes_1[..., 2:])
+    area_2 = compute_area(boxes_2[..., :2], boxes_2[..., 2:])
+
+    ious = intersection / (area_1 + area_2 - intersection + tf.pow(10.0, -6))
+
+    return ious
+
+
+def transform_corner_to_center(boxes):
+    """ Transform boxes of format (xmin, ymin, xmax, ymax)
+        to format (cx, cy, w, h)
+    Args:
+        boxes: tensor (num_boxes, 4)
+               of format (xmin, ymin, xmax, ymax)
+    Returns:
+        boxes: tensor (num_boxes, 4)
+               of format (cx, cy, w, h)
+    """
+    center_box = tf.concat([
+        (boxes[..., :2] + boxes[..., 2:]) / 2,
+        boxes[..., 2:] - boxes[..., :2]], axis=-1)
+
+    return center_box
+
+
+def transform_center_to_corner(boxes):
+    """ Transform boxes of format (cx, cy, w, h)
+        to format (xmin, ymin, xmax, ymax)
+    Args:
+        boxes: tensor (num_boxes, 4)
+               of format (cx, cy, w, h)
+    Returns:
+        boxes: tensor (num_boxes, 4)
+               of format (xmin, ymin, xmax, ymax)
+    """
+    corner_box = tf.concat([
+        boxes[..., :2] - boxes[..., 2:] / 2,
+        boxes[..., :2] + boxes[..., 2:] / 2], axis=-1)
+
+    return corner_box
 
 
 def generate_default_boxes(config):
@@ -78,8 +157,8 @@ def generate_labels_from_annotation(default_boxes, gt_boxes, gt_labels,
         gt_confs: classification targets, tensor (num_default,)
         gt_locs: regression targets, tensor (num_default, 4)
     """
-    default_corner_box = bbox_tf.transform_center_to_corner(default_boxes)
-    iou = bbox_tf.compute_iou(default_corner_box, gt_boxes)
+    default_corner_box = transform_center_to_corner(default_boxes)
+    iou = compute_iou(default_corner_box, gt_boxes)
 
     # match ground truth to default box, find the best gt_box for each
     # default box
@@ -124,7 +203,7 @@ def encode(default_boxes, boxes):
         locs: regression values, tensor (num_default, 4)
     """
     # Convert boxes to (cx, cy, w, h) format
-    transformed_boxes = bbox_tf.transform_corner_to_center(boxes)
+    transformed_boxes = transform_corner_to_center(boxes)
 
     locs = tf.concat([
         (transformed_boxes[..., :2] - default_boxes[:, :2]
