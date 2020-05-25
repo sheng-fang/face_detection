@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 
-from ssd import ssd_util
+from ssd.ssd import ssd_util
 
 
 class WIDERGenerator(object):
@@ -108,7 +108,7 @@ class WIDERGenerator(object):
 
 def main():
 
-    cfg_path = "../ssd/config.yaml"
+    cfg_path = "config.yaml"
     data_dir = os.path.join(os.path.expanduser("~"),
                             "Data/WIDER_FACE/WIDER_train")
     import yaml
